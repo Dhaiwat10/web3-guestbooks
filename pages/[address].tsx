@@ -8,15 +8,16 @@ import axios from 'axios';
 import { useRouter } from 'next/router';
 import { useState } from 'react';
 import Blockies from 'react-blockies';
+import { getTruncatedAddress } from '@/utils';
+import { ethers } from 'ethers';
 
 interface PageProps {
   entries: Entry[];
-  ens?: string | null;
+  receiver: string;
 }
 
-const Page: NextPage<PageProps> = ({ entries }) => {
+const Page: NextPage<PageProps> = ({ entries, receiver }) => {
   const router = useRouter();
-  const receiver = router.query.address;
   const { isConnected } = useConnect();
   const { data } = useAccount();
   const { signMessageAsync } = useSignMessage();
@@ -62,23 +63,24 @@ const Page: NextPage<PageProps> = ({ entries }) => {
     <main className='text-center'>
       <Toaster />
       <div className='flex flex-col'>
-        <ConnectButton showBalance={false} />
-        <h1>{ens || receiver}'s guestbook!</h1>
-        <ul className='flex flex-col gap-4'>
+        <div className='flex justify-center mt-8 mb-8'>
+          <ConnectButton showBalance={false} />
+        </div>
+
+        <h1 className='text-2xl font-bold'>{ens || receiver}'s guestbook!</h1>
+        <h3 className='text-slate-500'>
+          These people signed the guestbook and said <i>gm</i>
+        </h3>
+
+        <ul className='flex flex-col gap-4 mt-8'>
           {latestEntries.map((entry) => (
-            <li
-              className='border border-slate-200 p-4 rounded flex gap-2 justify-center'
-              key={entry.id}
-            >
-              <Blockies seed={entry.signer} />
-              <h2>{entry.signer}</h2>
-            </li>
+            <Account key={entry.id} address={entry.signer} />
           ))}
         </ul>
 
         <button
           disabled={isSigning}
-          className='p-2 rounded bg-slate-100 mt-4'
+          className='py-2 px-4 rounded text-white bg-blue-900 mt-8 w-fit mx-auto font-bold'
           onClick={handleSign}
         >
           Sign my guestbook
@@ -88,12 +90,29 @@ const Page: NextPage<PageProps> = ({ entries }) => {
   );
 };
 
+const Account = ({ address }: { address: string }) => {
+  const { data: ens } = useEnsName({ address });
+
+  return (
+    <li className='border border-slate-200 p-4 rounded flex gap-2 justify-center w-fit mx-auto hover:shadow'>
+      <Blockies seed={address} className='rounded' />
+      <h2>{ens || getTruncatedAddress(address)}</h2>
+    </li>
+  );
+};
+
 export async function getServerSideProps(context: NextPageContext) {
-  const entries = await fetchEntries(context.query.address as string);
+  const provider = ethers.getDefaultProvider();
+  const address = await provider.resolveName(context.query.address as string);
+  console.log({ address });
+  const entries = await fetchEntries(
+    address || (context.query.address as string)
+  );
 
   return {
     props: {
       entries,
+      receiver: address || (context.query.address as string),
     },
   };
 }

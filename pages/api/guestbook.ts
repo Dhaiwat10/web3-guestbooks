@@ -1,4 +1,5 @@
 import { checkForExistingEntry, createEntry, fetchEntries } from '@/utils/db';
+import { ethers } from 'ethers';
 import { verifyMessage } from 'ethers/lib/utils';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
@@ -10,7 +11,9 @@ export default async function handler(
 
   if (method === 'GET') {
     const { address } = req.query;
-    const entries = fetchEntries(address as string);
+    const provider = ethers.getDefaultProvider();
+    const resolvedAddress = await provider.resolveName(address as string);
+    const entries = await fetchEntries(resolvedAddress || (address as string));
     return res.status(200).json({
       entries,
     });
